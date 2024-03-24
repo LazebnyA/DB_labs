@@ -24,12 +24,16 @@ class Node:
             self.parent = new_root
 
             if not self.leaf:
-                children_mid_idx = len(self.children) // 2
-                right_node.children = self.children[children_mid_idx+1:]
-                self.children = self.children[:children_mid_idx]
-
                 right_node.parent = new_root
                 right_node.leaf = False
+
+                children_mid_idx = len(self.children) // 2
+                right_node.children = self.children[children_mid_idx:]
+
+                for child in self.children[children_mid_idx:]:
+                    child.parent = right_node
+
+                self.children = self.children[:children_mid_idx]
 
             new_root.children = [self, right_node]
 
@@ -123,7 +127,7 @@ class BPlusTree:
 def main():
     B = BPlusTree()
 
-    for i in range(1, 18):
+    for i in range(1, 28):
         B.insert((i, f"value {i}"))
 
     B.print_tree()
@@ -133,7 +137,7 @@ if __name__ == '__main__':
     main()
 
 # при перенесенні значення в корінь, треба його копіювати (залишати в ноді)
-# при вставці значення 17 воно не опускається до листів
+# при вставці значення 27 воно не опускається до листів
 
-#ліве піддерево показується а праве ні.!!!
+# попрацювати над прінтом дерева
 
