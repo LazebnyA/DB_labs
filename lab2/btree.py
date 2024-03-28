@@ -24,7 +24,6 @@ class Node:
             self.parent = new_root
 
             if not self.leaf:
-                right_node.parent = new_root
                 right_node.leaf = False
 
                 children_mid_idx = len(self.children) // 2
@@ -47,6 +46,18 @@ class Node:
             right_node.keys = self.keys[mid_idx + 1:]
             right_node.parent = self.parent
             self.keys = self.keys[:mid_idx]
+
+            if not self.leaf:
+                right_node.leaf = False
+
+                children_mid_idx = len(self.children) // 2
+                right_node.children = self.children[children_mid_idx:]
+
+                for child in self.children[children_mid_idx:]:
+                    child.parent = right_node
+
+                self.children = self.children[:children_mid_idx]
+
             self.parent.children += [right_node]
 
     def insert(self, key):
@@ -77,7 +88,6 @@ class Node:
                 return self.split()
 
         return self
-
 
     def search(self, key):
         if key in self.keys:
@@ -127,7 +137,7 @@ class BPlusTree:
 def main():
     B = BPlusTree()
 
-    for i in range(1, 28):
+    for i in range(1, 100):
         B.insert((i, f"value {i}"))
 
     B.print_tree()
@@ -140,4 +150,3 @@ if __name__ == '__main__':
 # при вставці значення 27 воно не опускається до листів
 
 # попрацювати над прінтом дерева
-
