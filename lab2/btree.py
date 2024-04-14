@@ -1,6 +1,9 @@
 from collections import deque
 
 D = 2
+max_depth = 4
+max_keys = 4
+max_leaves = max_keys ** max_depth
 
 
 def hash_function(word):
@@ -13,17 +16,22 @@ def hash_function(word):
         'Я': 9
     }
 
-    if len(word) > 10:
-        word = word[:10]
+    word = word.upper()
 
     code = ''
-    for char in word:
-        if char.upper() not in dictionary.keys():
-            continue
-        code += str(dictionary.get(char.upper()))  # перекодовуємо кожну букву в хеш
+    int_hash = 0
+    for i, char in enumerate(word):
+        if i < 3:
+            if char not in dictionary.keys():
+                continue
+            code += str(dictionary.get(char))  # перекодовуємо кожну букву в хеш
+        else:
+            int_hash += ord(char) % max_leaves
     code += '0' * (10 - len(code))  # додаємо нулі до коду, щоб отримати 10 значень
 
-    return int(code)
+    code = int(code) + int_hash
+
+    return code
 
 
 class Node:
@@ -146,6 +154,16 @@ class Node:
 
         return lst_of_pages
 
+    def del_by_key(self, key):
+        leaf_object = self.search_object(key)
+
+        if leaf_object:
+            keys_lst = [pair[0] for pair in leaf_object.keys]
+            if key in keys_lst:
+                el_idx = keys_lst.index(key)
+                del leaf_object.keys[el_idx]
+        return False
+
 
 class BPlusTree:
     def __init__(self):
@@ -159,6 +177,9 @@ class BPlusTree:
 
     def search_after(self, key):
         return self.root.search_all_after(key)
+
+    def delete(self, key):
+        return self.root.del_by_key(key)
 
     def print_tree(self):
         if self.root is None:
@@ -229,17 +250,19 @@ def main():
 
         B.insert((hashed_name, (name, number)))
 
+    print("_" * 100)
+
     B.print_tree()
 
-    print(B.search_after(hash_function("Соколовський")))
+    print("_" * 100)
+
+    print(B.delete(4610000530))
+    print(B.delete(4630000763))
+
+    print("_" * 100)
+
+    B.print_tree()
 
 
 if __name__ == '__main__':
     main()
-
-# при перенесенні значення в корінь, треба його копіювати (залишати в ноді)
-# в нелистових нодах не повинно бути значень у ключів (просто ключі)
-
-# якщо goes up з не листової ноди, воно не копіює значення вверх, а переносить його
-
-# попрацювати над прінтом дерева
