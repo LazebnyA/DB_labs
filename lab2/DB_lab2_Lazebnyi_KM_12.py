@@ -162,7 +162,12 @@ class Node:
             if key in keys_lst:
                 el_idx = keys_lst.index(key)
                 del leaf_object.keys[el_idx]
+        if not leaf_object.keys:
+            idx_to_del = leaf_object.parent.children.index(leaf_object)
+            del leaf_object.parent.children[idx_to_del]
         return False
+
+
 
 
 class BPlusTree:
@@ -244,7 +249,9 @@ def main():
         # ("Гладченко Віталій Володимирович", ["+380678901234"]),
     ]
 
-    for name, number in names_with_numbers:
+    for i, name, number in enumerate(names_with_numbers):
+        if i > max_leaves-1:
+            break
         hashed_name = hash_function(name)
         print(f"Ім'я: {name},\nНомер телефону: {number}.\nХеш-код: {hashed_name}\n")
 
@@ -257,7 +264,7 @@ def main():
     print("_" * 100)
 
     print(B.delete(4610000530))
-    print(B.delete(4630000763))
+#    print(B.delete(4630000763))
 
     print("_" * 100)
 
