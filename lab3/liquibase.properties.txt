@@ -1,0 +1,4 @@
+changeLogFile:create.sql
+url:  jdbc:postgresql://localhost:5432/lab3_db
+username:  lazebnyi_oleksandr
+password:  123
