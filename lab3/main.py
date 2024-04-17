@@ -70,9 +70,6 @@ def main():
                 wind_direction=row['wind_direction']
             )
 
-            session.add(weather_obj)
-            session.add(wind_obj)
-
             try:
                 session.add(weather_obj)
                 session.add(wind_obj)
