@@ -1,84 +1,142 @@
-import csv
 from datetime import datetime
 
 from db import WeatherData, WindData
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import sessionmaker
 
 
+def get_record_by_time(records_lst, country, date):
+    if not records_lst:
+        print("Пусто!")
+        return None
+    elif len(records_lst) == 1:
+        return 0, records_lst[0]
+
+    result_dict = {index: value for index, value in enumerate(records_lst)}
+
+    print(f"Для країни - {country} - є декілька варіантів в цей день ({date}, виберіть потрібний.")
+    for i, record in enumerate(records_lst):
+        print(f"{i}. Час: {record[7].strftime('%H:%M')}. Локація: {record[2]}.")
+
+    chosen_option = int(input("Обраний час під номером: "))
+    return chosen_option, result_dict[chosen_option]
+
+
+class WeatherDatabase:
+    def __init__(self, db_url):
+        self.engine = create_engine(db_url)
+        self.Session = sessionmaker(bind=self.engine)
+
+    def get_min_max_dates(self):
+        session = self.Session()
+        try:
+            min_date = session.query(func.min(WindData.last_updated)).scalar()
+            max_date = session.query(func.max(WindData.last_updated)).scalar()
+            return min_date, max_date
+        finally:
+            session.close()
+
+    def get_records(self, table_name, country, date):
+        table = self._get_table(table_name)
+        session = self.Session()
+        try:
+            query = session.query(table).filter(
+                table.c.country == country,
+                func.date(table.c.last_updated) == date.date()  # Extract date portion
+            )
+            records = query.all()
+            return records
+        finally:
+            session.close()
+
+    def _get_table(self, table_name):
+        tables_dict = {
+            'weather_data': WeatherData.__table__,
+            'wind_data': WindData.__table__
+        }
+        return tables_dict.get(table_name)
+
+
 def main():
-    engine = create_engine('postgresql://lazebnyi_oleksandr:123@localhost:5432/lab3_db')
+    db = WeatherDatabase('postgresql://lazebnyi_oleksandr:123@localhost:5432/lab3_db')
+    min_last_updated, max_last_updated = db.get_min_max_dates()
 
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    print("Дана програма виводить інформацію про погоду в введеній країні в відповідний час з бази даних")
+    print(f"Дані існують лише за період: {min_last_updated} - {max_last_updated}")
 
-    with open('GlobalWeatherRepository.csv', 'r') as weather_data:
-        reader = csv.DictReader(weather_data)
-        for i, row in enumerate(reader):
-            last_updated_epoch = int(row['last_updated_epoch'])
-            last_updated = datetime.strptime(row['last_updated'], '%Y-%m-%d %H:%M')
+    while True:
+        try:
+            country_input = input("Введіть назву країни: ")
+            date_input = datetime.strptime(input("Введіть дату (в форматі YYYY-MM-DD): "), '%Y-%m-%d')
 
-            weather_obj = WeatherData(
-                weather_id=i,
-                country=row['country'],
-                location_name=row['location_name'],
-                latitude=float(row['latitude']),
-                longitude=float(row['longitude']),
-                timezone=row['timezone'],
-                last_updated_epoch=last_updated_epoch,
-                last_updated=last_updated,
-                temperature_celsius=float(row['temperature_celsius']),
-                temperature_fahrenheit=float(row['temperature_fahrenheit']),
-                condition_text=row['condition_text'],
-                pressure_mb=float(row['pressure_mb']),
-                pressure_in=float(row['pressure_in']),
-                precip_mm=float(row['precip_mm']),
-                precip_in=float(row['precip_in']),
-                humidity=int(row['humidity']),
-                cloud=int(row['cloud']),
-                feels_like_celsius=float(row['feels_like_celsius']),
-                feels_like_fahrenheit=float(row['feels_like_fahrenheit']),
-                visibility_km=float(row['visibility_km']),
-                visibility_miles=float(row['visibility_miles']),
-                uv_index=float(row['uv_index']),
-                gust_mph=float(row['gust_mph']),
-                gust_kph=float(row['gust_kph']),
-                air_quality_Carbon_Monoxide=float(row['air_quality_Carbon_Monoxide']),
-                air_quality_Ozone=float(row['air_quality_Ozone']),
-                air_quality_Nitrogen_dioxide=float(row['air_quality_Nitrogen_dioxide']),
-                air_quality_Sulphur_dioxide=float(row['air_quality_Sulphur_dioxide']),
-                air_quality_PM25=float(row['air_quality_PM2.5']),
-                air_quality_PM10=float(row['air_quality_PM10']),
-                air_quality_us_epa_index=int(row['air_quality_us-epa-index']),
-                air_quality_gb_defra_index=int(row['air_quality_gb-defra-index']),
-                sunrise=datetime.strptime(row['sunrise'], '%I:%M %p').time(),
-                sunset=datetime.strptime(row['sunset'], '%I:%M %p').time(),
-                moonrise=None if row['moonrise'] == 'No moonrise' else datetime.strptime(row['moonrise'], '%I:%M %p').time(),
-                moonset=None if row['moonset'] == 'No moonset' else datetime.strptime(row['moonset'], '%I:%M %p').time(),
-                moon_phase=row['moon_phase'],
-                moon_illumination=int(row['moon_illumination'])
-            )
-            wind_obj = WindData(
-                wind_id=i,
-                country=row['country'],
-                last_updated_epoch=last_updated_epoch,
-                last_updated=last_updated,
-                wind_mph=float(row['wind_mph']),
-                wind_kph=float(row['wind_kph']),
-                wind_degree=int(row['wind_degree']),
-                wind_direction=row['wind_direction']
-            )
+            weather_records = db.get_records("weather_data", country_input, date_input)
 
-            try:
-                session.add(weather_obj)
-                session.add(wind_obj)
-                session.commit()
-            except Exception as e:
-                session.rollback()
-                print(f"Error: {e}")
-                continue
+            record_obj = get_record_by_time(weather_records, country_input, date_input)
+            weather_record = record_obj[1]
+            record_idx = record_obj[0]
+            wind_record = db.get_records("wind_data", country_input, date_input)[record_idx]
 
+            print("_" * 50)
+
+            print(f"Країна: {weather_record[1]}\n"
+                  f"Локація: {weather_record[2]}. Широта = {weather_record[3]}, Довгота = {weather_record[4]}.\n"
+                  f"Часова зона: {weather_record[5]}\n"
+                  f"Час і дата оновлення (Epoch або Unix формат): {wind_record[2]}\n"
+                  f"Час і дата оновлення: {wind_record[3].strftime('%Y-%m-%d %H:%M')}\n"
+                  f"Швидкість вітру: {wind_record[4]}\n"
+                  f"Напрям вітру (в градусах): {wind_record[5]} deg\n"
+                  f"Напрям вітру (загальний): {wind_record[6]}\n")
+
+            print("_" * 20)
+            print(f"Чи варто виходити на вулицю?")
+            if wind_record[-1]:
+                print("Так!")
+            else:
+                print("Ні!")
+
+
+            additional_input = input("Вивести додаткову інформацію (1 - так, будь-що - ні)?\n")
+
+            if additional_input == '1':
+                print("_" * 50)
+
+                print(f"Температура (гр. Цельсію): {weather_record[8]}°C\n"
+                      f"Температура (гр. Фаренгейта): {weather_record[9]}°F\n"
+                      f"Стан: {weather_record[10]}\n"
+                      f"Тиск у мілібарах: {weather_record[11]} mb\n"
+                      f"Тиск у дюймах: {weather_record[12]} in\n"
+                      f"Кількість опадів у міліметрах: {weather_record[13]} mm\n"
+                      f"Кількість опадів у дюймах: {weather_record[14]} in\n"
+                      f"Вологість у відсотках: {weather_record[15]}%\n"
+                      f"Хмарність у відсотках: {weather_record[16]}%\n"
+                      f"Відчутна температура в градусах Цельсія: {weather_record[17]}°C\n"
+                      f"Відчутна температура в градусах Фаренгейта: {weather_record[18]}°F\n"
+                      f"Видимість в кілометрах: {weather_record[19]} km\n"
+                      f"Видимість в милях: {weather_record[20]} mi\n"
+                      f"Ультрафіолетовий індекс: {weather_record[21]}\n"
+                      f"Порив вітру в милях на годину: {weather_record[22]} mi/h \n"
+                      f"Порив вітру в кілометрах на годину: {weather_record[23]} km/h \n"
+                      f"Вимірювання якості повітря. Оксид вуглецю: {weather_record[24]}\n"
+                      f"Вимірювання якості повітря. Озон: {weather_record[25]}\n"
+                      f"Вимірювання якості повітря. Діоксид азоту: {weather_record[26]}\n"
+                      f"Вимірювання якості повітря. Діоксид сірки: {weather_record[27]}\n"
+                      f"Вимірювання якості повітря. PM2.5: {weather_record[28]}\n"
+                      f"Вимірювання якості повітря. PM10: {weather_record[29]}\n"
+                      f"Вимірювання якості повітря. US EPA Index: {weather_record[30]}\n"
+                      f"Вимірювання якості повітря. GB DEFRA Index: {weather_record[31]}\n"
+                      f"Місцевий час сходу сонця: {weather_record[32]}\n"
+                      f"Місцевий час заходу сонця: {weather_record[33]}\n"
+                      f"Місцевий час сходу місяця: {weather_record[34]}\n"
+                      f"Місцевий час заходу місяця: {weather_record[35]}\n"
+                      f"Поточна фаза місяця: {weather_record[36]}\n"
+                      f"Відсоток освітленості Місяця: {weather_record[37]}%\n"
+                      "___________________________________________________________________________________")
+
+            break
+        except Exception as e:
+            print("Спробуйте ще раз.", e)
+            continue
 
 
 if __name__ == "__main__":

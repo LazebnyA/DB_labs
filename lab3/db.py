@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Time, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Time, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -55,7 +55,7 @@ class WindData(Base):
 
     last_updated_epoch = Column(Integer)
     last_updated = Column(DateTime)
-    wind_mph = Column(Float)
     wind_kph = Column(Float)
     wind_degree = Column(Integer)
     wind_direction = Column(String(3))
+    go_outside = Column(Boolean)
