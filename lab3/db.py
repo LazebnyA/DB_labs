@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Time, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Float, Time, DateTime, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -6,6 +6,10 @@ Base = declarative_base()
 
 class WeatherData(Base):
     __tablename__ = "weather_data"
+
+    __table_args__ = (
+        UniqueConstraint('weather_id', name='weather_id_unique_constraint'),
+    )
 
     weather_id = Column(Integer, primary_key=True)
     country = Column(String(255))
@@ -50,11 +54,8 @@ class WeatherData(Base):
 class WindData(Base):
     __tablename__ = "wind_data"
 
-    wind_id = Column(Integer, primary_key=True)
-    country = Column(String(255))
+    weather_id = Column(Integer, ForeignKey('weather_data.weather_id'), primary_key=True)
 
-    last_updated_epoch = Column(Integer)
-    last_updated = Column(DateTime)
     wind_kph = Column(Float)
     wind_degree = Column(Integer)
     wind_direction = Column(String(3))

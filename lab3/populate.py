@@ -60,10 +60,7 @@ def populate():
                 moon_illumination=int(row['moon_illumination'])
             )
             wind_obj = WindData(
-                wind_id=i,
-                country=row['country'],
-                last_updated_epoch=last_updated_epoch,
-                last_updated=last_updated,
+                weather_id=i,
                 wind_kph=float(row['wind_kph']),
                 wind_degree=int(row['wind_degree']),
                 wind_direction=row['wind_direction'],

@@ -23,6 +23,14 @@ def get_record_by_time(records_lst, country, date):
     return chosen_option, result_dict[chosen_option]
 
 
+def _get_table(table_name):
+    tables_dict = {
+        'weather_data': WeatherData.__table__,
+        'wind_data': WindData.__table__
+    }
+    return tables_dict.get(table_name)
+
+
 class WeatherDatabase:
     def __init__(self, db_url):
         self.engine = create_engine(db_url)
@@ -31,15 +39,15 @@ class WeatherDatabase:
     def get_min_max_dates(self):
         session = self.Session()
         try:
-            min_date = session.query(func.min(WindData.last_updated)).scalar()
-            max_date = session.query(func.max(WindData.last_updated)).scalar()
+            min_date = session.query(func.min(WeatherData.last_updated)).scalar()
+            max_date = session.query(func.max(WeatherData.last_updated)).scalar()
             return min_date, max_date
         finally:
             session.close()
 
-    def get_records(self, table_name, country, date):
-        table = self._get_table(table_name)
+    def get_records(self, country, date):
         session = self.Session()
+        table = WeatherData.__table__
         try:
             query = session.query(table).filter(
                 table.c.country == country,
@@ -50,12 +58,18 @@ class WeatherDatabase:
         finally:
             session.close()
 
-    def _get_table(self, table_name):
-        tables_dict = {
-            'weather_data': WeatherData.__table__,
-            'wind_data': WindData.__table__
-        }
-        return tables_dict.get(table_name)
+    def get_secondary_data(self, table_name, ids_lst):
+        table = _get_table(table_name)
+        session = self.Session()
+
+        try:
+            query = session.query(table).filter(
+                table.c.weather_id.in_(ids_lst)
+            )
+            records = query.all()
+            return records
+        finally:
+            session.close()
 
 
 def main():
@@ -70,23 +84,28 @@ def main():
             country_input = input("Введіть назву країни: ")
             date_input = datetime.strptime(input("Введіть дату (в форматі YYYY-MM-DD): "), '%Y-%m-%d')
 
-            weather_records = db.get_records("weather_data", country_input, date_input)
+            weather_records = db.get_records(country_input, date_input)
+            ids_lst = [record[0] for record in weather_records]
+            print(ids_lst)
 
             record_obj = get_record_by_time(weather_records, country_input, date_input)
             weather_record = record_obj[1]
             record_idx = record_obj[0]
-            wind_record = db.get_records("wind_data", country_input, date_input)[record_idx]
+
+            wind_records = db.get_secondary_data('wind_data', ids_lst)
+            print(1)
+            wind_record = wind_records[record_idx]
 
             print("_" * 50)
 
             print(f"Країна: {weather_record[1]}\n"
                   f"Локація: {weather_record[2]}. Широта = {weather_record[3]}, Довгота = {weather_record[4]}.\n"
                   f"Часова зона: {weather_record[5]}\n"
-                  f"Час і дата оновлення (Epoch або Unix формат): {wind_record[2]}\n"
-                  f"Час і дата оновлення: {wind_record[3].strftime('%Y-%m-%d %H:%M')}\n"
-                  f"Швидкість вітру: {wind_record[4]}\n"
-                  f"Напрям вітру (в градусах): {wind_record[5]} deg\n"
-                  f"Напрям вітру (загальний): {wind_record[6]}\n")
+                  f"Час і дата оновлення (Epoch або Unix формат): {weather_record[6]}\n"
+                  f"Час і дата оновлення: {weather_record[7].strftime('%Y-%m-%d %H:%M')}\n"
+                  f"Швидкість вітру: {wind_record[1]} km/h\n"
+                  f"Напрям вітру (в градусах): {wind_record[2]} deg\n"
+                  f"Напрям вітру (загальний): {wind_record[3]} deg\n")
 
             print("_" * 20)
             print(f"Чи варто виходити на вулицю?")
@@ -94,7 +113,6 @@ def main():
                 print("Так!")
             else:
                 print("Ні!")
-
 
             additional_input = input("Вивести додаткову інформацію (1 - так, будь-що - ні)?\n")
 
