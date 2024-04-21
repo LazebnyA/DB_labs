@@ -2,7 +2,7 @@ from datetime import datetime
 
 from db import WeatherData, WindData
 
-from sqlalchemy import create_engine, select, func
+from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 
 
@@ -73,7 +73,7 @@ class WeatherDatabase:
 
 
 def main():
-    db = WeatherDatabase('postgresql://lazebnyi_oleksandr:123@localhost:5432/lab3_db')
+    db = WeatherDatabase('mysql://root:marmelad17A!@localhost:3306/lab3_db')
     min_last_updated, max_last_updated = db.get_min_max_dates()
 
     print("Дана програма виводить інформацію про погоду в введеній країні в відповідний час з бази даних")
@@ -105,7 +105,7 @@ def main():
                   f"Час і дата оновлення: {weather_record[7].strftime('%Y-%m-%d %H:%M')}\n"
                   f"Швидкість вітру: {wind_record[1]} km/h\n"
                   f"Напрям вітру (в градусах): {wind_record[2]} deg\n"
-                  f"Напрям вітру (загальний): {wind_record[3]} deg\n")
+                  f"Напрям вітру (загальний): {wind_record[3]} \n")
 
             print("_" * 20)
             print(f"Чи варто виходити на вулицю?")

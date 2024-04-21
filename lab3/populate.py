@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 
 def populate():
-    engine = create_engine('postgresql://lazebnyi_oleksandr:123@localhost:5432/lab3_db')
+    engine = create_engine('mysql://root:marmelad17A!@localhost:3306/lab3_db')
 
     Session = sessionmaker(bind=engine)
     session = Session()
