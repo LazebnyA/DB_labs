@@ -35,18 +35,16 @@ def hash_function(word):
 
 
 class Node:
-    def __init__(self, parent=None, leaf=False, next_sibling=None):
+    def __init__(self, parent=None, leaf=False, next_sibling=None, prev_sibling=None):
         self.keys = []
         self.leaf = leaf
         self.parent = parent
         self.children = [] if not leaf else None
         self.next_sibling = next_sibling
-
-    def get_keys(self):
-        return self.keys
+        self.prev_sibling = prev_sibling
 
     def split(self):
-        right_node = Node(leaf=True)
+        right_node = Node(leaf=self.leaf, parent=self.parent)
         mid_idx = len(self.keys) // 2
 
         if self.leaf:
@@ -55,19 +53,27 @@ class Node:
             goes_up = self.keys[mid_idx]
 
         if not self.leaf:
-            right_node.leaf = False
             right_node.keys = self.keys[mid_idx + 1:]
+            right_node.children = self.children[mid_idx + 1:]
 
-            children_mid_idx = len(self.children) // 2
-            right_node.children = self.children[children_mid_idx:]
-
-            for child in self.children[children_mid_idx:]:
+            for child in right_node.children:
                 child.parent = right_node
 
-            self.children = self.children[:children_mid_idx]
+            self.children = self.children[:mid_idx + 1]
+
+            if self.next_sibling:
+                self.next_sibling.prev_sibling = right_node
+                right_node.next_sibling = self.next_sibling
+            self.next_sibling = right_node
+            right_node.prev_sibling = self
+
         else:
             right_node.keys = self.keys[mid_idx:]
+            if self.next_sibling:
+                self.next_sibling.prev_sibling = right_node
+            right_node.next_sibling = self.next_sibling
             self.next_sibling = right_node
+            right_node.prev_sibling = self
 
         self.keys = self.keys[:mid_idx]
 
@@ -76,11 +82,9 @@ class Node:
             new_root.keys.append(goes_up)
 
             self.parent = new_root
+            right_node.parent = new_root
 
             new_root.children = [self, right_node]
-
-            for child in new_root.children:
-                child.parent = new_root
 
             return new_root
         else:
@@ -90,6 +94,8 @@ class Node:
 
             self_idx = self.parent.children.index(self)
             self.parent.children.insert(self_idx + 1, right_node)
+
+        return self.parent
 
     def insert(self, key):
         if self.leaf:
@@ -142,17 +148,86 @@ class Node:
     def search_all_after(self, key):
 
         fst_page = self.search_object(key)
+
+        if fst_page is None or fst_page is False:
+            return False
+
         el_idx = [pair[0] for pair in fst_page.keys].index(key)
         lst_of_pages = [pair[1] for pair in fst_page.keys[el_idx:]]
 
         current_page = fst_page.next_sibling
         while True:
             if current_page is None or current_page is False:
+                print(current_page)
                 break
-            lst_of_pages.append([pair[1] for pair in current_page.keys])
+            lst_of_pages = lst_of_pages + [pair[1] for pair in current_page.keys]
             current_page = current_page.next_sibling
 
         return lst_of_pages
+
+    def search_all_before(self, key):
+        fst_page = self.search_object(key)
+
+        if fst_page is None or fst_page is False:
+            return False
+
+        el_idx = [pair[0] for pair in fst_page.keys].index(key)
+        lst_of_pages = [pair[1] for pair in fst_page.keys[:el_idx + 1]]
+
+        current_page = fst_page.prev_sibling
+        while True:
+            if current_page is None or current_page is False:
+                break
+            lst_of_pages = [pair[1] for pair in current_page.keys] + lst_of_pages
+            current_page = current_page.prev_sibling
+
+        return lst_of_pages
+
+    def rebalanced(self, obj):
+        obj_idx = obj.parent.children.index(obj)
+        if obj.prev_sibling and len(obj.prev_sibling.keys) > max_keys // 2:
+            obj.keys.insert(0, obj.prev_sibling.keys[-1])
+            obj.prev_sibling.keys.pop()
+            if not obj.leaf:
+                if obj.keys[0] < obj.parent.keys[obj_idx]:
+                    obj.parent.keys[obj_idx - 1] = obj.keys[0]
+                else:
+                    obj.parent.keys[obj_idx] = obj.keys[0]
+
+        elif obj.next_sibling and len(obj.next_sibling.keys) > max_keys // 2:
+            obj.keys.append(obj.next_sibling.keys[0])
+            obj.next_sibling.keys.pop(0)
+            if not obj.leaf:
+                if obj.keys[-1] < obj.parent.keys[obj_idx]:
+                    obj.parent.keys[obj_idx - 1] = obj.keys[-1]
+                else:
+                    obj.parent.keys[obj_idx] = obj.keys[-1]
+
+        elif obj.prev_sibling:
+            obj.prev_sibling.keys.extend(obj.keys)
+            if not obj.leaf:
+                obj.prev_sibling.keys.append(obj.parent.keys[obj_idx - 1])
+                del obj.parent.keys[obj_idx - 1]
+            obj.parent.children.remove(obj)
+            if obj.next_sibling:
+                obj.prev_sibling.next_sibling = obj.next_sibling
+                obj.next_sibling.prev_sibling = obj.prev_sibling
+
+            if len(obj.prev_sibling.keys) < max_keys // 2:
+                self.rebalanced(obj.prev_sibling.parent)
+
+        elif obj.next_sibling:
+            obj.keys.extend(obj.next_sibling.keys)
+            if not obj.leaf:
+                obj.keys.append(obj.parent.keys[obj_idx])
+                del obj.parent.keys[obj_idx]
+            obj.parent.children.remove(obj.next_sibling)
+            if obj.next_sibling.next_sibling:
+                obj.next_sibling.next_sibling.prev_sibling = obj
+                obj.next_sibling = obj.next_sibling.next_sibling
+
+            if len(obj.keys) < max_keys // 2:
+                self.rebalanced(obj.parent)
 
     def del_by_key(self, key):
         leaf_object = self.search_object(key)
@@ -162,12 +237,10 @@ class Node:
             if key in keys_lst:
                 el_idx = keys_lst.index(key)
                 del leaf_object.keys[el_idx]
-        if not leaf_object.keys:
-            idx_to_del = leaf_object.parent.children.index(leaf_object)
-            del leaf_object.parent.children[idx_to_del]
+                if len(leaf_object.keys) < max_keys // 2:
+                    self.rebalanced(leaf_object)
+                return True
         return False
-
-
 
 
 class BPlusTree:
@@ -182,6 +255,9 @@ class BPlusTree:
 
     def search_after(self, key):
         return self.root.search_all_after(key)
+
+    def search_before(self, key):
+        return self.root.search_all_before(key)
 
     def delete(self, key):
         return self.root.del_by_key(key)
@@ -216,11 +292,11 @@ def main():
         ("Павлюченко Олександр Олександрович", ["+380345678901", "+380876543210"]),
         ("Поляковський Михайло Іванович", ["+380456789012"]),
         ("Коваленко Ольга Сергіївна", ["+380567890123", "+380765432109"]),
-        # ("Міщенко Тетяна Вікторівна", ["+380678901234"]),
-        # ("Івановський Валерій Петрович", ["+380789012345", "+380654321098"]),
-        # ("Сидорович Юрій Віталійович", ["+380890123456"]),
-        # ("Петрович Ігор Васильович", ["+380901234567", "+380543210987"]),
-        # ("Мельничук Ірина Андріївна", ["+380012345678"]),
+        ("Міщенко Тетяна Вікторівна", ["+380678901234"]),
+        ("Івановський Валерій Петрович", ["+380789012345", "+380654321098"]),
+        ("Сидорович Юрій Віталійович", ["+380890123456"]),
+        ("Петрович Ігор Васильович", ["+380901234567", "+380543210987"]),
+        ("Мельничук Ірина Андріївна", ["+380012345678"]),
         # ("Григорович Наталія Олександрівна", ["+380123456789", "+380432109876"]),
         # ("Ткаченко Олексій Сергійович", ["+380234567890"]),
         # ("Шевченко Віктор Миколайович", ["+380345678901", "+380321098765"]),
@@ -249,26 +325,36 @@ def main():
         # ("Гладченко Віталій Володимирович", ["+380678901234"]),
     ]
 
-    for i, name, number in enumerate(names_with_numbers):
-        if i > max_leaves-1:
+    # Insertion
+    for i, (name, number) in enumerate(names_with_numbers):
+        if i > max_leaves - 1:
             break
         hashed_name = hash_function(name)
         print(f"Ім'я: {name},\nНомер телефону: {number}.\nХеш-код: {hashed_name}\n")
 
         B.insert((hashed_name, (name, number)))
 
-    print("_" * 100)
-
+    # Search one
     B.print_tree()
+    print(B.search(6110000861))
 
-    print("_" * 100)
+    # Search all after
+    print("After")
+    print(B.search_after(4610000530))
 
-    print(B.delete(4610000530))
-#    print(B.delete(4630000763))
+    print("Before")
+    # Search all before
+    print(B.search_before(6640000704))
 
-    print("_" * 100)
+    # Deletion
 
-    B.print_tree()
+    # B.print_tree()
+    #
+    # B.delete(7320000710)
+    # B.delete(7320000589)
+    # B.delete(6640000704)
+    #
+    # B.print_tree()
 
 
 if __name__ == '__main__':
